@@ -5,8 +5,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
@@ -23,7 +21,7 @@ public class Main {
 
     private static final int TIMEOUT = 10000;
     private static String _username;
-    private static String rootDir = "PinCrawl Results";
+    private static String rootDir = "";
 
     /**
      * Verify arguments, and handle some errors
@@ -57,6 +55,9 @@ public class Main {
         // validate username and connect to their page
         Document doc;
         try {
+            // usernames:
+            // ihealthjournal
+            // younghipfit
             doc = Jsoup.connect("https://www.pinterest.com/" + _username + "/").timeout(TIMEOUT).get();
         } catch (HttpStatusException e) {
             System.out.println("ERROR: not a valid user name, aborting.");
@@ -66,12 +67,8 @@ public class Main {
         final Elements boardLinks = doc.select("a[href].boardLinkWrapper");
 
         // make root directory
-        rootDir += " for " + _username;
-        String sdf = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        rootDir += " " + sdf;
-        if (!makeDir(rootDir))
-            return;
-        System.out.println("Downloading all pins to '" + rootDir + "'...");
+        rootDir = _username;
+        makeDir(rootDir);
 
         for (final Element boardLink : boardLinks) {
             // connect to board via url and get all page urls
@@ -111,15 +108,14 @@ public class Main {
             //boardName = boardName.substring(10, boardName.length()); // remove "more from" part
             //boardName = URLEncoder.encode(boardName, "UTF-8");
             //boardName = boardName.replace('+',' ');
-            if (!makeDir(rootDir + "\\" + boardName))
-                return;
+            makeDir(rootDir + File.separator + boardName);
 
             System.out.println("...Downloading '" + boardName + "'...");
-            int imgCount = 1;
             for (final Element pageLink : pageLinks) {
                 // connect to image page and get direct link to image then save it
                 final Document pageDoc = Jsoup.connect(pageLink.absUrl("href")).timeout(TIMEOUT).get();
 
+                // TODO yeah, I just need the image url
                 String imageUrl = pageDoc.select("meta[property=twitter:image:src]").get(0).attr("content");
 //                final Elements imgLinks = pageDoc.select("img[src].pinImage");
 //                for (final Element imgLink : imgLinks) {
@@ -127,14 +123,13 @@ public class Main {
 //                }
 
                 if (imageUrl != null) {
-                    saveImage(imageUrl, rootDir + "\\" + boardName, imgCount);
+                    saveImage(imageUrl, rootDir + File.separator + boardName);
                 }
-                imgCount++;
             }
         }
 
         System.out.println("All pins downloaded, to " + System.getProperty("user.dir")
-                + "\\" + rootDir + "\\");
+                + File.separator + rootDir + File.separator);
         System.out.println("Thanks for using PinCrawl!");
     }
 
@@ -164,17 +159,25 @@ public class Main {
      *
      * @param srcUrl url of image
      * @param path   path to save image (in root\board)
-     * @param count  count to name image since I don't want to use the long and tedious names on pinterest
      * @throws IOException
      */
-    public static void saveImage(String srcUrl, String path, int count) throws IOException {
+    public static void saveImage(String srcUrl, String path) throws IOException {
         BufferedImage image;
+        String imageName = srcUrl.substring(srcUrl.lastIndexOf('/') + 1, srcUrl.length());
+        File imageFile = new File(path + File.separator + imageName);
+        if (imageFile.exists()) {
+            System.out.println(imageName + " exists");
+            return;
+        } else {
+            System.out.println("downloading " + imageName);
+        }
+
         URL url = new URL(srcUrl);
         if (srcUrl.endsWith(".gif"))
             System.out.println("ERROR: .gifs not supported, continuing");
         try {
             image = ImageIO.read(url);
-            ImageIO.write(image, "png", new File(path + "\\" + count + ".png"));
+            ImageIO.write(image, "png", imageFile);
         } catch (ArrayIndexOutOfBoundsException ex) {
             System.out.println("ERROR: Image too big, probably a .gif that didn't end with .gif, continuing");
         }
