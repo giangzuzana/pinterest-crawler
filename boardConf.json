@@ -1,0 +1,68 @@
+{
+    "sourceBoard": [
+        "bodybuilding.com",
+        "influxr.squarespace.com",
+        "eathealthytrainhard.tumblr.com",
+        "-fitspo.tumblr.com",
+        "fit-poland.tumblr.com",
+        "fuckyeahfitspo.tumblr.com"
+    ],
+    "userBoard": [
+        {
+            "userName": "HannahHutch1995",
+            "boardName": "lets-get-fit"
+        },
+        {
+            "userName": "dsvandermaas",
+            "boardName": "get-in-shape"
+        },
+        {
+            "userName": "eatfitfuel",
+            "boardName": "fitness-and-exercise"
+        },
+        {
+            "userName": "lindseyreviews",
+            "boardName": "good-food-good-eats"
+        },
+        {
+            "userName": "lindseyreviews",
+            "boardName": "fitness"
+        },
+        {
+            "userName": "lindseyreviews",
+            "boardName": "weight-loss"
+        },
+        {
+            "userName": "lindseyreviews",
+            "boardName": "yoga"
+        },
+        {
+            "userName": "lindseyreviews",
+            "boardName": "health"
+        },
+        {
+            "userName": "lindseyreviews",
+            "boardName": "fitness-motivation-quotes"
+        },
+        {
+            "userName": "younghipfit",
+            "boardName": "fitness-inspiration"
+        },
+        {
+            "userName": "spotebi",
+            "boardName": "workout-routines"
+        },
+        {
+            "userName": "spotebi",
+            "boardName": "exercise-guide"
+        },
+        {
+            "userName": "karen_lushious",
+            "boardName": null
+        },
+        {
+            "userName": "spotebi",
+            "boardName": "yoga-meditation"
+        }
+    ]
+}

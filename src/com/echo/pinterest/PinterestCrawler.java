@@ -1,8 +1,10 @@
 package com.echo.pinterest;
 
+import com.echo.pinterest.conf.BoardConf;
 import com.echo.pinterest.process.DBHandler;
 import com.echo.pinterest.process.DownloadHandler;
 import com.echo.pinterest.process.PinHandler;
+import com.google.gson.Gson;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -12,6 +14,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.URLEncoder;
 
@@ -35,6 +38,9 @@ public class PinterestCrawler {
 
     @Option(name = "-h", usage = "handler: download or db")
     private String handler;
+
+    @Option(name = "-f", usage = "board config file")
+    private String boardConfFile;
 
     private PinHandler pinHandler;
 
@@ -77,12 +83,30 @@ public class PinterestCrawler {
         }
 
         try {
-            if (isSourceBoard) {
-                System.out.println(PINTEREST_BASE_URL + "source/" + boardName);
-                crawl(boardName);
+            if (boardConfFile == null) {
+
+                if (isSourceBoard) {
+                    System.out.println(PINTEREST_BASE_URL + "source/" + boardName);
+                    crawl(boardName);
+                } else {
+                    System.out.println(PINTEREST_BASE_URL + userName + "/" + boardName);
+                    crawl(userName, boardName);
+                }
             } else {
-                System.out.println(PINTEREST_BASE_URL + userName + "/" + boardName);
-                crawl(userName, boardName);
+                BoardConf boardConf = new Gson().fromJson(new FileReader(boardConfFile), BoardConf.class);
+                if (boardConf.sourceBoard != null) {
+                    for (String sourceBoardName : boardConf.sourceBoard) {
+                        crawl(sourceBoardName);
+                    }
+                }
+
+                if (boardConf.userBoard != null) {
+                    for (BoardConf.UserBoardEntity entity : boardConf.userBoard) {
+                        crawl(entity.userName, entity.boardName);
+                    }
+
+                }
+
             }
 
         } catch (IOException e) {
