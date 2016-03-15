@@ -5,6 +5,9 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -21,6 +24,20 @@ public class Main {
     private static final int TIMEOUT = 10000;
     private static final String PINTEREST_BASE_URL = "https://www.pinterest.com/";
 
+
+    @Option(name = "-s", usage = "is source board?")
+    private boolean isSourceBoard = false;
+
+    @Option(name = "-d", usage = "domain name ")
+    private String domain;
+
+    @Option(name = "-u", usage = "user name")
+    private String userName;
+
+    @Option(name = "-b", usage = "board name")
+    private String boardName = null;
+
+
     /**
      * Verify arguments, and handle some errors
      *
@@ -28,27 +45,34 @@ public class Main {
      */
     public static void main(final String[] args) {
         System.out.println("Welcome to PinCrawl, this may take a while...");
+        new Main().doMain(args);
+    }
 
-        // get username
-        String _username;
-        if (args.length > 0) {
-            _username = args[0];
-        } else {
-            System.out.println("ERROR: please enter a user name, aborting.");
+    private void doMain(final String[] args) {
+        CmdLineParser cmdLineParser = new CmdLineParser(this);
+
+        try {
+            cmdLineParser.parseArgument(args);
+        } catch (CmdLineException e) {
+            System.err.println(e.getMessage());
+            System.out.println("TODO");
             return;
         }
 
         try {
-            //process(_username, "Fitness Inspiration");
-            //process(_username, null);
-            process("bodybuilding.com");
+            if (isSourceBoard) {
+                process(domain);
+            } else {
+                process(userName, boardName);
+            }
+
         } catch (IOException e) {
-            System.out.println("ERROR: IOException, probably a messed up URL.");
+            e.printStackTrace();
         }
     }
 
 
-    private static void processBoard(Element boardDoc, String boardName, String rootDir) throws IOException {
+    private void processBoard(Element boardDoc, String boardName, String rootDir) throws IOException {
         makeDir(rootDir + File.separator + boardName);
 
         System.out.println("...Downloading '" + boardName + "'...");
@@ -76,7 +100,7 @@ public class Main {
      *
      * @param domainName
      */
-    private static void process(String domainName) throws IOException {
+    private void process(String domainName) throws IOException {
         Document boardDoc;
         try {
             boardDoc = Jsoup.connect(PINTEREST_BASE_URL + "source/" + domainName).timeout(TIMEOUT).get();
@@ -97,7 +121,7 @@ public class Main {
      * @param aUserName
      * @param aBoardName, when aBoardName is null, download all boards
      */
-    private static void process(String aUserName, String aBoardName) throws IOException {
+    private void process(String aUserName, String aBoardName) throws IOException {
         // validate username and connect to their page
         Document doc;
         try {
@@ -144,7 +168,8 @@ public class Main {
             }
 
             if (aBoardName != null && !boardName.equals(aBoardName)) {
-                return;
+                System.out.println("do not download " + boardName);
+                continue;
             }
 
             boardName = URLEncoder.encode(boardName, "UTF-8");
@@ -168,7 +193,7 @@ public class Main {
      *
      * @param name name of the file
      */
-    public static boolean makeDir(String name) {
+    public boolean makeDir(String name) {
         File file = new File(name);
         if (!file.exists()) {
             if (file.mkdir()) {
@@ -190,7 +215,7 @@ public class Main {
      * @param path   path to save image (in root\board)
      * @throws IOException
      */
-    public static void saveImage(String srcUrl, String path) throws IOException {
+    public void saveImage(String srcUrl, String path) throws IOException {
         BufferedImage image;
         String imageName = srcUrl.substring(srcUrl.lastIndexOf('/') + 1, srcUrl.length());
         File imageFile = new File(path + File.separator + imageName);
