@@ -1,4 +1,4 @@
-package main;
+package com.echo.pinterest;
 
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
@@ -19,7 +19,7 @@ import java.net.URLEncoder;
 /**
  * A simple app to download any Pinterest user's pins to a local directory.
  */
-public class Main {
+public class PinterestCrawler {
 
     private static final int TIMEOUT = 10000;
     private static final String PINTEREST_BASE_URL = "https://www.pinterest.com/";
@@ -45,7 +45,7 @@ public class Main {
      */
     public static void main(final String[] args) {
         System.out.println("Welcome to PinCrawl, this may take a while...");
-        new Main().doMain(args);
+        new PinterestCrawler().doMain(args);
     }
 
     private void doMain(final String[] args) {
