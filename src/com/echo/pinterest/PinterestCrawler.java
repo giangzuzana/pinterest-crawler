@@ -78,8 +78,10 @@ public class PinterestCrawler {
 
         try {
             if (isSourceBoard) {
+                System.out.println(PINTEREST_BASE_URL + "source/" + boardName);
                 crawl(boardName);
             } else {
+                System.out.println(PINTEREST_BASE_URL + userName + "/" + boardName);
                 crawl(userName, boardName);
             }
 
