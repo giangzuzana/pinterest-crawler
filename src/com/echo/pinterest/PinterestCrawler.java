@@ -16,6 +16,7 @@ import org.kohsuke.args4j.Option;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 
@@ -24,7 +25,7 @@ import java.util.ArrayList;
  */
 public class PinterestCrawler {
 
-    private static final int TIMEOUT = 10000;
+    private static final int TIMEOUT = 30000;
     private static final String PINTEREST_BASE_URL = "https://www.pinterest.com/";
 
 
@@ -134,7 +135,12 @@ public class PinterestCrawler {
         final Elements pageLinks = boardDoc.select("a[href].pinImageWrapper");
         for (final Element pageLink : pageLinks) {
             // connect to image page and get direct link to image then save it
-            final Document pageDoc = Jsoup.connect(pageLink.absUrl("href")).timeout(TIMEOUT).get();
+            final Document pageDoc;
+            try {
+                pageDoc = Jsoup.connect(pageLink.absUrl("href")).timeout(TIMEOUT).get();
+            } catch (SocketTimeoutException e) {
+                continue;
+            }
 
             // TODO yeah, I just need the image url
             Elements imageElements = pageDoc.select("meta[property=twitter:image:src]");
