@@ -17,6 +17,7 @@ import org.kohsuke.args4j.Option;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 
 /**
  * A simple app to download any Pinterest user's pins to a local directory.
@@ -77,6 +78,9 @@ public class PinterestCrawler {
             }
         }
 
+        // TODO do more check on the arguments
+
+
         if (!pinHandler.init()) {
             System.out.println("init error");
             return;
@@ -133,7 +137,11 @@ public class PinterestCrawler {
             final Document pageDoc = Jsoup.connect(pageLink.absUrl("href")).timeout(TIMEOUT).get();
 
             // TODO yeah, I just need the image url
-            String imageUrl = pageDoc.select("meta[property=twitter:image:src]").get(0).attr("content");
+            Elements imageElements = pageDoc.select("meta[property=twitter:image:src]");
+            if (imageElements.size() < 1) {
+                continue;
+            }
+            String imageUrl = imageElements.get(0).attr("content");
 //                final Elements imgLinks = pageDoc.select("img[src].pinImage");
 //                for (final Element imgLink : imgLinks) {
 //                    saveImage(imgLink.absUrl("src"), rootDir + "\\" + boardName, imgCount);
