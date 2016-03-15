@@ -42,6 +42,16 @@ public class DownloadHandler implements PinHandler {
         }
     }
 
+    @Override
+    public boolean init() {
+        return true;
+    }
+
+    @Override
+    public void deInit() {
+
+    }
+
     /**
      * Saves an image from the specified URL to the path with the name count
      * TODO: allow gifs, maybe

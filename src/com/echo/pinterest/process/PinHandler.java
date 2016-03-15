@@ -16,4 +16,8 @@ public interface PinHandler {
      * @param sourceBoardName eg: the source name of https://jp.pinterest.com/source/bodybuilding.com is bodybuilding.com
      */
     void handle(String imageUrl, String sourceBoardName);
+
+    boolean init();
+
+    void deInit();
 }

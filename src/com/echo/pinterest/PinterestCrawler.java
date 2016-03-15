@@ -71,6 +71,11 @@ public class PinterestCrawler {
             }
         }
 
+        if (!pinHandler.init()) {
+            System.out.println("init error");
+            return;
+        }
+
         try {
             if (isSourceBoard) {
                 crawl(boardName);
@@ -81,6 +86,8 @@ public class PinterestCrawler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        pinHandler.deInit();
     }
 
 
