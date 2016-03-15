@@ -1,5 +1,8 @@
 package com.echo.pinterest;
 
+import com.echo.pinterest.process.DBHandler;
+import com.echo.pinterest.process.DownloadHandler;
+import com.echo.pinterest.process.PinHandler;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -9,11 +12,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.net.URLEncoder;
 
 /**
@@ -28,21 +27,23 @@ public class PinterestCrawler {
     @Option(name = "-s", usage = "is source board?")
     private boolean isSourceBoard = false;
 
-    @Option(name = "-d", usage = "domain name ")
-    private String domain;
-
     @Option(name = "-u", usage = "user name")
     private String userName;
 
     @Option(name = "-b", usage = "board name")
     private String boardName = null;
 
+    @Option(name = "-h", usage = "handler: download or db")
+    private String handler;
+
+    private PinHandler pinHandler;
 
     /**
      * Verify arguments, and handle some errors
      *
      * @param args arguments (needs a string for username or abort)
      */
+    // -u HannahHutch1995 -b lets-get-fit -h download
     public static void main(final String[] args) {
         System.out.println("Welcome to PinCrawl, this may take a while...");
         new PinterestCrawler().doMain(args);
@@ -59,11 +60,22 @@ public class PinterestCrawler {
             return;
         }
 
+        if (handler == null) {
+            System.err.println("-h download or handler");
+            return;
+        } else {
+            if (handler.equalsIgnoreCase("download")) {
+                pinHandler = new DownloadHandler();
+            } else {
+                pinHandler = new DBHandler();
+            }
+        }
+
         try {
             if (isSourceBoard) {
-                process(domain);
+                crawl(boardName);
             } else {
-                process(userName, boardName);
+                crawl(userName, boardName);
             }
 
         } catch (IOException e) {
@@ -72,8 +84,14 @@ public class PinterestCrawler {
     }
 
 
-    private void processBoard(Element boardDoc, String boardName, String rootDir) throws IOException {
-        makeDir(rootDir + File.separator + boardName);
+    /**
+     * @param boardDoc
+     * @param userName      when isSourceBoard is true, please ignore this argument
+     * @param boardName
+     * @param isSourceBoard
+     * @throws IOException
+     */
+    private void crawlBoard(Element boardDoc, String userName, String boardName, boolean isSourceBoard) throws IOException {
 
         System.out.println("...Downloading '" + boardName + "'...");
         final Elements pageLinks = boardDoc.select("a[href].pinImageWrapper");
@@ -89,7 +107,11 @@ public class PinterestCrawler {
 //                }
 
             if (imageUrl != null) {
-                saveImage(imageUrl, rootDir + File.separator + boardName);
+                if (isSourceBoard) {
+                    pinHandler.handle(imageUrl, boardName);
+                } else {
+                    pinHandler.handle(imageUrl, userName, boardName);
+                }
             }
         }
 
@@ -100,7 +122,7 @@ public class PinterestCrawler {
      *
      * @param domainName
      */
-    private void process(String domainName) throws IOException {
+    private void crawl(String domainName) throws IOException {
         Document boardDoc;
         try {
             boardDoc = Jsoup.connect(PINTEREST_BASE_URL + "source/" + domainName).timeout(TIMEOUT).get();
@@ -110,9 +132,7 @@ public class PinterestCrawler {
         }
 
         // make root directory
-        String rootDir = "source";
-        makeDir(rootDir);
-        processBoard(boardDoc, domainName, rootDir);
+        crawlBoard(boardDoc, null, domainName, true);
     }
 
     /**
@@ -123,11 +143,7 @@ public class PinterestCrawler {
      *                    attention: aBoardName is the string in the url, not the real board name
      *                    please check the url for the real board name
      */
-    private void process(String aUserName, String aBoardName) throws IOException {
-
-        // make root directory
-        String rootDir = aUserName;
-        makeDir(rootDir);
+    private void crawl(String aUserName, String aBoardName) throws IOException {
 
         // validate username and connect to their page
         Document doc;
@@ -135,7 +151,7 @@ public class PinterestCrawler {
             if (aBoardName != null) {
 
                 doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/" + aBoardName).timeout(TIMEOUT).get();
-                processBoard(doc, aBoardName, rootDir);
+                crawlBoard(doc, aUserName, aBoardName, false);
                 return;
             }
 
@@ -183,61 +199,10 @@ public class PinterestCrawler {
                 boardName = boardName.substring(0, 256);
             }
 
-            processBoard(boardDoc, boardName, rootDir);
+            crawlBoard(boardDoc, aUserName, boardName, false);
         }
 
-        System.out.println("All pins downloaded, to " + System.getProperty("user.dir")
-                + File.separator + rootDir + File.separator);
         System.out.println("Thanks for using PinCrawl!");
     }
 
-    /**
-     * Makes a directory with the filename provided, fails if it already exists
-     * TODO: allow arguments for overwrite, subtractive, and additive changes
-     *
-     * @param name name of the file
-     */
-    public boolean makeDir(String name) {
-        File file = new File(name);
-        if (!file.exists()) {
-            if (file.mkdir()) {
-                return true;
-            } else {
-                System.out.println("ERROR: Failed to create directory '" + name + "', aborting.");
-            }
-        } else {
-            System.out.println("ERROR: Directory '" + name + "' already exists, aborting.");
-        }
-        return false;
-    }
-
-    /**
-     * Saves an image from the specified URL to the path with the name count
-     * TODO: allow gifs, maybe
-     *
-     * @param srcUrl url of image
-     * @param path   path to save image (in root\board)
-     * @throws IOException
-     */
-    public void saveImage(String srcUrl, String path) throws IOException {
-        BufferedImage image;
-        String imageName = srcUrl.substring(srcUrl.lastIndexOf('/') + 1, srcUrl.length());
-        File imageFile = new File(path + File.separator + imageName);
-        if (imageFile.exists()) {
-            System.out.println(imageName + " exists");
-            return;
-        } else {
-            System.out.println("downloading " + srcUrl);
-        }
-
-        URL url = new URL(srcUrl);
-        if (srcUrl.endsWith(".gif"))
-            System.out.println("ERROR: .gifs not supported, continuing");
-        try {
-            image = ImageIO.read(url);
-            ImageIO.write(image, "png", imageFile);
-        } catch (ArrayIndexOutOfBoundsException ex) {
-            System.out.println("ERROR: Image too big, probably a .gif that didn't end with .gif, continuing");
-        }
-    }
 }
