@@ -1,12 +1,5 @@
 package main;
 
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.net.URL;
-import java.net.URLEncoder;
-
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -14,6 +7,11 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLEncoder;
 
 /**
  * A simple app to download any Pinterest user's pins to a local directory.
@@ -21,6 +19,7 @@ import javax.imageio.ImageIO;
 public class Main {
 
     private static final int TIMEOUT = 10000;
+    private static final String PINTEREST_BASE_URL = "https://www.pinterest.com/";
 
     /**
      * Verify arguments, and handle some errors
@@ -41,7 +40,8 @@ public class Main {
 
         try {
             //process(_username, "Fitness Inspiration");
-            process(_username, null);
+            //process(_username, null);
+            process("bodybuilding.com");
         } catch (IOException e) {
             System.out.println("ERROR: IOException, probably a messed up URL.");
         }
@@ -76,8 +76,19 @@ public class Main {
      *
      * @param domainName
      */
-    private static void process(String domainName) {
+    private static void process(String domainName) throws IOException {
+        Document boardDoc;
+        try {
+            boardDoc = Jsoup.connect(PINTEREST_BASE_URL + "source/" + domainName).timeout(TIMEOUT).get();
+        } catch (HttpStatusException e) {
+            System.out.println("ERROR: not a valid user name, aborting.");
+            return;
+        }
 
+        // make root directory
+        String rootDir = "source";
+        makeDir(rootDir);
+        processBoard(boardDoc, domainName, rootDir);
     }
 
     /**
@@ -93,7 +104,7 @@ public class Main {
             // usernames:
             // ihealthjournal
             // younghipfit
-            doc = Jsoup.connect("https://www.pinterest.com/" + aUserName + "/").timeout(TIMEOUT).get();
+            doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/").timeout(TIMEOUT).get();
         } catch (HttpStatusException e) {
             System.out.println("ERROR: not a valid user name, aborting.");
             return;
