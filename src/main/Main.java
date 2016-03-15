@@ -3,6 +3,7 @@ package main;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.URL;
 import java.net.URLEncoder;
 
@@ -20,8 +21,6 @@ import javax.imageio.ImageIO;
 public class Main {
 
     private static final int TIMEOUT = 10000;
-    private static String _username;
-    private static String rootDir = "";
 
     /**
      * Verify arguments, and handle some errors
@@ -32,6 +31,7 @@ public class Main {
         System.out.println("Welcome to PinCrawl, this may take a while...");
 
         // get username
+        String _username;
         if (args.length > 0) {
             _username = args[0];
         } else {
@@ -40,14 +40,15 @@ public class Main {
         }
 
         try {
-            process();
+            //process(_username, "Fitness Inspiration");
+            process(_username, null);
         } catch (IOException e) {
             System.out.println("ERROR: IOException, probably a messed up URL.");
         }
     }
 
 
-    private static void processBoard(Element boardDoc, String boardName) throws IOException {
+    private static void processBoard(Element boardDoc, String boardName, String rootDir) throws IOException {
         makeDir(rootDir + File.separator + boardName);
 
         System.out.println("...Downloading '" + boardName + "'...");
@@ -71,18 +72,28 @@ public class Main {
     }
 
     /**
-     * All main logic
+     * eg: https://jp.pinterest.com/source/bodybuilding.com
      *
-     * @throws IOException if bad URL
+     * @param domainName
      */
-    private static void process() throws IOException {
+    private static void process(String domainName) {
+
+    }
+
+    /**
+     * eg: https://jp.pinterest.com/HannahHutch1995/lets-get-fit/
+     *
+     * @param aUserName
+     * @param aBoardName, when aBoardName is null, download all boards
+     */
+    private static void process(String aUserName, String aBoardName) throws IOException {
         // validate username and connect to their page
         Document doc;
         try {
             // usernames:
             // ihealthjournal
             // younghipfit
-            doc = Jsoup.connect("https://www.pinterest.com/" + _username + "/").timeout(TIMEOUT).get();
+            doc = Jsoup.connect("https://www.pinterest.com/" + aUserName + "/").timeout(TIMEOUT).get();
         } catch (HttpStatusException e) {
             System.out.println("ERROR: not a valid user name, aborting.");
             return;
@@ -91,7 +102,7 @@ public class Main {
         final Elements boardLinks = doc.select("a[href].boardLinkWrapper");
 
         // make root directory
-        rootDir = _username;
+        String rootDir = aUserName;
         makeDir(rootDir);
 
         for (final Element boardLink : boardLinks) {
@@ -120,6 +131,11 @@ public class Main {
                 System.out.println("ERROR: couldn't find name of board, it's the developer's fault. Aborting.");
                 return;
             }
+
+            if (aBoardName != null && !boardName.equals(aBoardName)) {
+                return;
+            }
+
             boardName = URLEncoder.encode(boardName, "UTF-8");
             boardName = boardName.replace('+', ' ');
             // plus extra length safety now
@@ -127,7 +143,7 @@ public class Main {
                 boardName = boardName.substring(0, 256);
             }
 
-            processBoard(boardDoc, boardName);
+            processBoard(boardDoc, boardName, rootDir);
         }
 
         System.out.println("All pins downloaded, to " + System.getProperty("user.dir")
