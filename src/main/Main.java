@@ -46,6 +46,30 @@ public class Main {
         }
     }
 
+
+    private static void processBoard(Element boardDoc, String boardName) throws IOException {
+        makeDir(rootDir + File.separator + boardName);
+
+        System.out.println("...Downloading '" + boardName + "'...");
+        final Elements pageLinks = boardDoc.select("a[href].pinImageWrapper");
+        for (final Element pageLink : pageLinks) {
+            // connect to image page and get direct link to image then save it
+            final Document pageDoc = Jsoup.connect(pageLink.absUrl("href")).timeout(TIMEOUT).get();
+
+            // TODO yeah, I just need the image url
+            String imageUrl = pageDoc.select("meta[property=twitter:image:src]").get(0).attr("content");
+//                final Elements imgLinks = pageDoc.select("img[src].pinImage");
+//                for (final Element imgLink : imgLinks) {
+//                    saveImage(imgLink.absUrl("src"), rootDir + "\\" + boardName, imgCount);
+//                }
+
+            if (imageUrl != null) {
+                saveImage(imageUrl, rootDir + File.separator + boardName);
+            }
+        }
+
+    }
+
     /**
      * All main logic
      *
@@ -73,7 +97,6 @@ public class Main {
         for (final Element boardLink : boardLinks) {
             // connect to board via url and get all page urls
             final Document boardDoc = Jsoup.connect(boardLink.absUrl("href")).timeout(TIMEOUT).get();
-            final Elements pageLinks = boardDoc.select("a[href].pinImageWrapper");
 
             // parse and format board name and make its directory
             // new, get name from Module User boardRepTitle hasText thumb title inside, instead of hover
@@ -103,29 +126,8 @@ public class Main {
             if (boardName.length() > 256) {
                 boardName = boardName.substring(0, 256);
             }
-            // old, got title and description
-            //String boardName = boardLink.attr("title");
-            //boardName = boardName.substring(10, boardName.length()); // remove "more from" part
-            //boardName = URLEncoder.encode(boardName, "UTF-8");
-            //boardName = boardName.replace('+',' ');
-            makeDir(rootDir + File.separator + boardName);
 
-            System.out.println("...Downloading '" + boardName + "'...");
-            for (final Element pageLink : pageLinks) {
-                // connect to image page and get direct link to image then save it
-                final Document pageDoc = Jsoup.connect(pageLink.absUrl("href")).timeout(TIMEOUT).get();
-
-                // TODO yeah, I just need the image url
-                String imageUrl = pageDoc.select("meta[property=twitter:image:src]").get(0).attr("content");
-//                final Elements imgLinks = pageDoc.select("img[src].pinImage");
-//                for (final Element imgLink : imgLinks) {
-//                    saveImage(imgLink.absUrl("src"), rootDir + "\\" + boardName, imgCount);
-//                }
-
-                if (imageUrl != null) {
-                    saveImage(imageUrl, rootDir + File.separator + boardName);
-                }
-            }
+            processBoard(boardDoc, boardName);
         }
 
         System.out.println("All pins downloaded, to " + System.getProperty("user.dir")
@@ -169,7 +171,7 @@ public class Main {
             System.out.println(imageName + " exists");
             return;
         } else {
-            System.out.println("downloading " + imageName);
+            System.out.println("downloading " + srcUrl);
         }
 
         URL url = new URL(srcUrl);
