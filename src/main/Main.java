@@ -120,25 +120,34 @@ public class Main {
      *
      * @param aUserName
      * @param aBoardName, when aBoardName is null, download all boards
+     *                    attention: aBoardName is the string in the url, not the real board name
+     *                    please check the url for the real board name
      */
     private void process(String aUserName, String aBoardName) throws IOException {
-        // validate username and connect to their page
-        Document doc;
-        try {
-            // usernames:
-            // ihealthjournal
-            // younghipfit
-            doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/").timeout(TIMEOUT).get();
-        } catch (HttpStatusException e) {
-            System.out.println("ERROR: not a valid user name, aborting.");
-            return;
-        }
-        // list of board urls
-        final Elements boardLinks = doc.select("a[href].boardLinkWrapper");
 
         // make root directory
         String rootDir = aUserName;
         makeDir(rootDir);
+
+        // validate username and connect to their page
+        Document doc;
+        try {
+            if (aBoardName != null) {
+
+                doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/" + aBoardName).timeout(TIMEOUT).get();
+                processBoard(doc, aBoardName, rootDir);
+                return;
+            }
+
+            doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/").timeout(TIMEOUT).get();
+        } catch (HttpStatusException e) {
+            e.printStackTrace();
+            System.out.println("ERROR: not a valid user name, aborting.");
+            return;
+        }
+        System.out.println("will download all boards");
+        // list of board urls
+        final Elements boardLinks = doc.select("a[href].boardLinkWrapper");
 
         for (final Element boardLink : boardLinks) {
             // connect to board via url and get all page urls
@@ -165,11 +174,6 @@ public class Main {
             if (boardName == null || boardName.isEmpty()) {
                 System.out.println("ERROR: couldn't find name of board, it's the developer's fault. Aborting.");
                 return;
-            }
-
-            if (aBoardName != null && !boardName.equals(aBoardName)) {
-                System.out.println("do not download " + boardName);
-                continue;
             }
 
             boardName = URLEncoder.encode(boardName, "UTF-8");
