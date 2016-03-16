@@ -1,5 +1,6 @@
 package com.echo.pinterest;
 
+import com.databasesandlife.util.AutoStopThreadPool;
 import com.echo.pinterest.conf.BoardConf;
 import com.echo.pinterest.process.DBHandler;
 import com.echo.pinterest.process.DownloadHandler;
@@ -18,7 +19,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
-import java.util.concurrent.*;
 
 /**
  * A simple app to download any Pinterest user's pins to a local directory.
@@ -45,7 +45,7 @@ public class PinterestCrawler {
     private String boardConfFile;
 
     private PinHandler pinHandler;
-    private ExecutorService threadPoolExecutor;
+    private AutoStopThreadPool threadPoolExecutor;
 
     /**
      * Verify arguments, and handle some errors
@@ -88,40 +88,48 @@ public class PinterestCrawler {
             return;
         }
 
-        threadPoolExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
+        //threadPoolExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
+        threadPoolExecutor = new AutoStopThreadPool("pinPool", Runtime.getRuntime().availableProcessors() * 2, () -> {
+            pinHandler.deInit();
+        });
+        threadPoolExecutor.addTask(crawlRunnable());
+        threadPoolExecutor.execute();
+    }
 
-        try {
-            if (boardConfFile == null) {
+    private Runnable crawlRunnable() {
+        Runnable runnable = () -> {
+            try {
+                if (boardConfFile == null) {
 
-                if (isSourceBoard) {
-                    System.out.println(PINTEREST_BASE_URL + "source/" + boardName);
-                    crawl(boardName);
+                    if (isSourceBoard) {
+                        System.out.println(PINTEREST_BASE_URL + "source/" + boardName);
+                        crawl(boardName);
+                    } else {
+                        System.out.println(PINTEREST_BASE_URL + userName + "/" + boardName);
+                        crawl(userName, boardName);
+                    }
                 } else {
-                    System.out.println(PINTEREST_BASE_URL + userName + "/" + boardName);
-                    crawl(userName, boardName);
-                }
-            } else {
-                BoardConf boardConf = new Gson().fromJson(new FileReader(boardConfFile), BoardConf.class);
-                if (boardConf.sourceBoard != null) {
-                    for (String sourceBoardName : boardConf.sourceBoard) {
-                        crawl(sourceBoardName);
+                    BoardConf boardConf = new Gson().fromJson(new FileReader(boardConfFile), BoardConf.class);
+                    if (boardConf.sourceBoard != null) {
+                        for (String sourceBoardName : boardConf.sourceBoard) {
+                            crawl(sourceBoardName);
+                        }
                     }
-                }
 
-                if (boardConf.userBoard != null) {
-                    for (BoardConf.UserBoardEntity entity : boardConf.userBoard) {
-                        crawl(entity.userName, entity.boardName);
+                    if (boardConf.userBoard != null) {
+                        for (BoardConf.UserBoardEntity entity : boardConf.userBoard) {
+                            crawl(entity.userName, entity.boardName);
+                        }
+
                     }
 
                 }
 
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        pinHandler.deInit();
+        };
+        return runnable;
     }
 
 
@@ -140,7 +148,7 @@ public class PinterestCrawler {
         }
 
         //crawlBoard(boardDoc, null, domainName, true);
-        threadPoolExecutor.submit(crawlBoardRunnable(boardDoc, null, domainName, true));
+        threadPoolExecutor.addTask(crawlBoardRunnable(boardDoc, null, domainName, true));
     }
 
 
@@ -161,7 +169,7 @@ public class PinterestCrawler {
 
                 doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/" + aBoardName).timeout(TIMEOUT).get();
                 //crawlBoard(doc, aUserName, aBoardName, false);
-                threadPoolExecutor.submit(crawlBoardRunnable(doc, aUserName, aBoardName, false));
+                threadPoolExecutor.addTask(crawlBoardRunnable(doc, aUserName, aBoardName, false));
                 return;
             }
 
@@ -177,7 +185,7 @@ public class PinterestCrawler {
 
         for (final Element boardLink : boardLinks) {
             //crawlUserBoard(aUserName, boardLink);
-            threadPoolExecutor.submit(crawlUserBoardRunnable(aUserName, boardLink));
+            threadPoolExecutor.addTask(crawlUserBoardRunnable(aUserName, boardLink));
         }
 
         System.out.println("Thanks for using PinCrawl!");
