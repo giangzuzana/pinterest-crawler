@@ -8,6 +8,7 @@ A tool used to crawl images from [Pinterest](https://pinterest.com), and you can
 	* -f specify a board config file which contains the boards you want to crawl.
 
 ##TODO
-1. multi-thread
+1. multi-thread, finished
+2. load more 
 
 > thanks [PinCrawl](https://github.com/kpauly/PinCrawl)
