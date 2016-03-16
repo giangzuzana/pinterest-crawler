@@ -17,7 +17,6 @@ public class DBHandler implements PinHandler {
 
     private Connection connect = null;
     private Statement statement = null;
-    private ResultSet resultSet = null;
 
     /**
      * @param imageUrl
@@ -42,6 +41,7 @@ public class DBHandler implements PinHandler {
         querySql = String.format(querySql, imageUrl);
         insertSql = String.format(insertSql, imageUrl, sourceBoardName);
         System.out.println("inserting: " + imageUrl);
+        ResultSet resultSet;
         try {
             resultSet = statement.executeQuery(querySql);
             if (!resultSet.next()) {
@@ -49,7 +49,6 @@ public class DBHandler implements PinHandler {
             }
 
             resultSet.close();
-            resultSet = null;
         } catch (SQLException e) {
             //e.printStackTrace();
             // do nothing
@@ -83,9 +82,6 @@ public class DBHandler implements PinHandler {
     @Override
     public void deInit() {
         try {
-            if (resultSet != null) {
-                resultSet.close();
-            }
             if (statement != null) {
                 statement.close();
             }
