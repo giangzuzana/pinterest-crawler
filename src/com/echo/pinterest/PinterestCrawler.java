@@ -18,7 +18,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
-import java.util.ArrayList;
+import java.util.concurrent.*;
 
 /**
  * A simple app to download any Pinterest user's pins to a local directory.
@@ -45,6 +45,7 @@ public class PinterestCrawler {
     private String boardConfFile;
 
     private PinHandler pinHandler;
+    private ExecutorService threadPoolExecutor;
 
     /**
      * Verify arguments, and handle some errors
@@ -87,6 +88,8 @@ public class PinterestCrawler {
             return;
         }
 
+        threadPoolExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
+
         try {
             if (boardConfFile == null) {
 
@@ -121,6 +124,127 @@ public class PinterestCrawler {
         pinHandler.deInit();
     }
 
+
+    /**
+     * eg: https://jp.pinterest.com/source/bodybuilding.com
+     *
+     * @param domainName
+     */
+    private void crawl(String domainName) throws IOException {
+        Document boardDoc;
+        try {
+            boardDoc = Jsoup.connect(PINTEREST_BASE_URL + "source/" + domainName).timeout(TIMEOUT).get();
+        } catch (HttpStatusException e) {
+            System.out.println("ERROR: not a valid user name, aborting.");
+            return;
+        }
+
+        //crawlBoard(boardDoc, null, domainName, true);
+        threadPoolExecutor.submit(crawlBoardRunnable(boardDoc, null, domainName, true));
+    }
+
+
+    /**
+     * eg: https://jp.pinterest.com/HannahHutch1995/lets-get-fit/
+     *
+     * @param aUserName
+     * @param aBoardName, when aBoardName is null, download all boards
+     *                    attention: aBoardName is the string in the url, not the real board name
+     *                    please check the url for the real board name
+     */
+    private void crawl(String aUserName, String aBoardName) throws IOException {
+
+        // validate username and connect to their page
+        Document doc;
+        try {
+            if (aBoardName != null) {
+
+                doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/" + aBoardName).timeout(TIMEOUT).get();
+                //crawlBoard(doc, aUserName, aBoardName, false);
+                threadPoolExecutor.submit(crawlBoardRunnable(doc, aUserName, aBoardName, false));
+                return;
+            }
+
+            doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/").timeout(TIMEOUT).get();
+        } catch (HttpStatusException e) {
+            e.printStackTrace();
+            System.out.println("ERROR: not a valid user name, aborting.");
+            return;
+        }
+        System.out.println("will download all boards");
+        // list of board urls
+        final Elements boardLinks = doc.select("a[href].boardLinkWrapper");
+
+        for (final Element boardLink : boardLinks) {
+            //crawlUserBoard(aUserName, boardLink);
+            threadPoolExecutor.submit(crawlUserBoardRunnable(aUserName, boardLink));
+        }
+
+        System.out.println("Thanks for using PinCrawl!");
+    }
+
+    private Runnable crawlUserBoardRunnable(String userName, Element userBoardDoc) {
+        Runnable runnable = () -> {
+            try {
+                crawlUserBoard(userName, userBoardDoc);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        };
+
+        return runnable;
+    }
+
+    private void crawlUserBoard(String userName, Element userBoardDoc) throws IOException {
+        // connect to board via url and get all page urls
+        final Document boardDoc = Jsoup.connect(userBoardDoc.absUrl("href")).timeout(TIMEOUT).get();
+
+        // parse and format board name and make its directory
+        // new, get name from Module User boardRepTitle hasText thumb title inside, instead of hover
+        // hate having to use all these loops, wasn't getting selector and .attr working properly and give up
+        // cause I was tired, so loops it is
+        String boardName = null;
+        for (Element el : userBoardDoc.children()) {
+            if (el.className().equals("boardName hasBoardContext")) {
+                for (Element el2 : el.children()) {
+                    if (el2.className().equals("Module User boardRepTitle hasText thumb")) {
+                        for (Element el3 : el2.children()) {
+                            if (el3.className().equals("title")) {
+                                boardName = el3.childNode(0).outerHtml();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (boardName == null || boardName.isEmpty()) {
+            System.out.println("ERROR: couldn't find name of board, it's the developer's fault. Aborting.");
+            return;
+        }
+
+        boardName = URLEncoder.encode(boardName, "UTF-8");
+        boardName = boardName.replace('+', ' ');
+        // plus extra length safety now
+        if (boardName.length() > 256) {
+            boardName = boardName.substring(0, 256);
+        }
+
+        crawlBoard(boardDoc, userName, boardName, false);
+
+    }
+
+    private Runnable crawlBoardRunnable(Element boardDoc, String userName, String boardName, boolean isSourceBoard) {
+        Runnable runnable = () -> {
+            try {
+                crawlBoard(boardDoc, userName, boardName, isSourceBoard);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        };
+        return runnable;
+
+    }
 
     /**
      * @param boardDoc
@@ -160,96 +284,8 @@ public class PinterestCrawler {
                     pinHandler.handle(imageUrl, userName, boardName);
                 }
             }
+
         }
-
-    }
-
-    /**
-     * eg: https://jp.pinterest.com/source/bodybuilding.com
-     *
-     * @param domainName
-     */
-    private void crawl(String domainName) throws IOException {
-        Document boardDoc;
-        try {
-            boardDoc = Jsoup.connect(PINTEREST_BASE_URL + "source/" + domainName).timeout(TIMEOUT).get();
-        } catch (HttpStatusException e) {
-            System.out.println("ERROR: not a valid user name, aborting.");
-            return;
-        }
-
-        // make root directory
-        crawlBoard(boardDoc, null, domainName, true);
-    }
-
-    /**
-     * eg: https://jp.pinterest.com/HannahHutch1995/lets-get-fit/
-     *
-     * @param aUserName
-     * @param aBoardName, when aBoardName is null, download all boards
-     *                    attention: aBoardName is the string in the url, not the real board name
-     *                    please check the url for the real board name
-     */
-    private void crawl(String aUserName, String aBoardName) throws IOException {
-
-        // validate username and connect to their page
-        Document doc;
-        try {
-            if (aBoardName != null) {
-
-                doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/" + aBoardName).timeout(TIMEOUT).get();
-                crawlBoard(doc, aUserName, aBoardName, false);
-                return;
-            }
-
-            doc = Jsoup.connect(PINTEREST_BASE_URL + aUserName + "/").timeout(TIMEOUT).get();
-        } catch (HttpStatusException e) {
-            e.printStackTrace();
-            System.out.println("ERROR: not a valid user name, aborting.");
-            return;
-        }
-        System.out.println("will download all boards");
-        // list of board urls
-        final Elements boardLinks = doc.select("a[href].boardLinkWrapper");
-
-        for (final Element boardLink : boardLinks) {
-            // connect to board via url and get all page urls
-            final Document boardDoc = Jsoup.connect(boardLink.absUrl("href")).timeout(TIMEOUT).get();
-
-            // parse and format board name and make its directory
-            // new, get name from Module User boardRepTitle hasText thumb title inside, instead of hover
-            // hate having to use all these loops, wasn't getting selector and .attr working properly and give up
-            // cause I was tired, so loops it is
-            String boardName = null;
-            for (Element el : boardLink.children()) {
-                if (el.className().equals("boardName hasBoardContext")) {
-                    for (Element el2 : el.children()) {
-                        if (el2.className().equals("Module User boardRepTitle hasText thumb")) {
-                            for (Element el3 : el2.children()) {
-                                if (el3.className().equals("title")) {
-                                    boardName = el3.childNode(0).outerHtml();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (boardName == null || boardName.isEmpty()) {
-                System.out.println("ERROR: couldn't find name of board, it's the developer's fault. Aborting.");
-                return;
-            }
-
-            boardName = URLEncoder.encode(boardName, "UTF-8");
-            boardName = boardName.replace('+', ' ');
-            // plus extra length safety now
-            if (boardName.length() > 256) {
-                boardName = boardName.substring(0, 256);
-            }
-
-            crawlBoard(boardDoc, aUserName, boardName, false);
-        }
-
-        System.out.println("Thanks for using PinCrawl!");
     }
 
 }
