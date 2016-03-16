@@ -36,11 +36,20 @@ public class DBHandler implements PinHandler {
     @Override
     public void handle(String imageUrl, String sourceBoardName) {
 
-        String sql = "INSERT INTO " + dbConf.table + " (url, boardName) " + "VALUES ('%s', '%s')";
-        sql = String.format(sql, imageUrl, sourceBoardName);
+        String querySql = "SELECT url FROM " + dbConf.table + " WHERE url = " + "'%s'";
+        String insertSql = "INSERT INTO " + dbConf.table + " (url, boardName) " + "VALUES ('%s', '%s')";
+
+        querySql = String.format(querySql, imageUrl);
+        insertSql = String.format(insertSql, imageUrl, sourceBoardName);
         System.out.println("inserting: " + imageUrl);
         try {
-            statement.execute(sql);
+            resultSet = statement.executeQuery(querySql);
+            if (!resultSet.next()) {
+                statement.execute(insertSql);
+            }
+
+            resultSet.close();
+            resultSet = null;
         } catch (SQLException e) {
             //e.printStackTrace();
             // do nothing
