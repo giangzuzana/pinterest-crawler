@@ -7,5 +7,7 @@ A tool used to crawl images from [Pinterest](https://pinterest.com), and you can
 	* -s use to crawl board like this https://jp.pinterest.com/source/bodybuilding.com/
 	* -f specify a board config file which contains the boards you want to crawl.
 
+##TODO
+1. multi-thread
 
 > thanks [PinCrawl](https://github.com/kpauly/PinCrawl)
